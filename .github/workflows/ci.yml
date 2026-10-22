@@ -1,14 +1,14 @@
 name: CI
- 
-# Jalan di semua branch (push) dan semua PR. Job deploy ditambahkan nanti
-# di feature/deploy-ghcr dengan gating di level job, bukan di sini.
+
+# Jalan di semua branch (push) dan semua PR. Job deploy hanya berjalan untuk
+# push ke main (gating di level job lewat `if`, bukan di trigger workflow).
 on:
   push:
   pull_request:
- 
+
 permissions:
   contents: read
- 
+
 jobs:
   test:
     name: test
@@ -42,25 +42,25 @@ jobs:
       # Verifikasi versi major terbaru di halaman Releases masing-masing action
       # sebelum commit; v4 dipakai karena pasti tersedia.
       - uses: actions/checkout@v4
- 
+
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           extensions: mbstring, pdo_mysql, pdo_sqlite
           coverage: none
- 
+
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
- 
+
       # Smoke check: migrasi jalan di MySQL 8.4 (DB_* dari env level job).
       - name: Migrate on MySQL
         run: php artisan migrate --force
- 
+
       # phpunit.xml tidak memaksa DB (baris sqlite dikomentari), jadi tes
       # berjalan di MySQL 8.4 lewat env level job.
       - name: Run tests
         run: php artisan test
- 
+
   build:
     name: build
     runs-on: ubuntu-24.04
@@ -69,15 +69,67 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
- 
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
- 
+
       - name: Install dependencies
         run: npm ci
- 
+
       - name: Build
         run: npm run build
+
+  deploy:
+    name: deploy
+    runs-on: ubuntu-24.04
+    needs: [test, build]
+    # Hanya push ke main. PR, branch dev, dan branch fitur berhenti di test + build.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR hanya menerima nama image huruf kecil (repo ini punya huruf kapital "SV").
+      - name: Set image prefix
+        run: echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Login memakai GITHUB_TOKEN bawaan; tidak ada secret tambahan.
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tag = nomor commit penuh. Tidak ada tag latest.
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE_PREFIX }}-backend:${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          provenance: false
+          build-args: |
+            VITE_API_BASE_URL=/api
+          tags: ${{ env.IMAGE_PREFIX }}-frontend:${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Summary
+        run: |
+          echo "### Images pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ${IMAGE_PREFIX}-backend:${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ${IMAGE_PREFIX}-frontend:${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
