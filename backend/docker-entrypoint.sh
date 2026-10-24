@@ -1,11 +1,11 @@
 #!/bin/sh
 set -e
 
-cd /var/www/html
+cd /app
 
 # DB sudah sehat saat script ini jalan (depends_on: service_healthy).
 php artisan migrate --force
 php artisan db:seed --force
 
-# --no-reload: semua variabel environment dari Compose diteruskan ke server.
-exec php artisan serve --host=0.0.0.0 --port=8000 --no-reload
+# FrankenPHP (Caddy) melayani API di :8000 sesuai /etc/frankenphp/Caddyfile.
+exec frankenphp run --config /etc/frankenphp/Caddyfile --adapter caddyfile

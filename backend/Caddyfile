@@ -1,0 +1,16 @@
+{
+	frankenphp
+	admin off
+}
+
+:8000 {
+	root * /app/public
+
+	# Access log ke stdout supaya terlihat di `docker compose logs backend`.
+	log {
+		output stdout
+		format console
+	}
+
+	php_server
+}
