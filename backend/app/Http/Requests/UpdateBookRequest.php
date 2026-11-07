@@ -4,9 +4,11 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Concerns\LogsValidationFailures;
 
 class UpdateBookRequest extends FormRequest
 {
+    use LogsValidationFailures;
     /**
      * Determine if the user is authorized to make this request.
      */

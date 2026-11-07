@@ -7,6 +7,8 @@ use App\Http\Requests\StoreBookRequest;
 use App\Http\Requests\UpdateBookRequest;
 use App\Models\Book;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class BookController extends Controller
 {
@@ -25,6 +27,14 @@ class BookController extends Controller
     {
         $book = Book::create($request->validated());
 
+        Log::info('Book created', [
+            'event' => 'book.created',
+            'actor' => 'user:'.$request->user()->id,
+            'action' => 'create_book',
+            'reason' => 'user_request',
+            'book_id' => $book->id,
+        ]);
+
         return response()->json($book, 201);
     }
 
@@ -41,7 +51,17 @@ class BookController extends Controller
      */
     public function update(UpdateBookRequest $request, Book $book): JsonResponse
     {
-        $book->update($request->validated());
+        $validated = $request->validated();
+        $book->update($validated);
+
+        Log::info('Book updated', [
+            'event' => 'book.updated',
+            'actor' => 'user:'.$request->user()->id,
+            'action' => 'update_book',
+            'reason' => 'user_request',
+            'book_id' => $book->id,
+            'changed_fields' => array_keys($validated),
+        ]);
 
         return response()->json($book);
     }
@@ -49,9 +69,17 @@ class BookController extends Controller
     /**
      * DELETE /api/books/{book} -> 200 + pesan JSON (bukan 204, karena balasan harus JSON).
      */
-    public function destroy(Book $book): JsonResponse
+    public function destroy(Request $request, Book $book): JsonResponse
     {
         $book->delete();
+
+        Log::info('Book deleted', [
+            'event' => 'book.deleted',
+            'actor' => 'user:'.$request->user()->id,
+            'action' => 'delete_book',
+            'reason' => 'user_request',
+            'book_id' => $book->id,
+        ]);
 
         return response()->json(['message' => 'Book deleted.']);
     }

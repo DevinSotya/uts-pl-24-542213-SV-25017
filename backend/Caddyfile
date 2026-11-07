@@ -6,11 +6,7 @@
 :8000 {
 	root * /app/public
 
-	# Access log ke stdout supaya terlihat di `docker compose logs backend`.
-	log {
-		output stdout
-		format console
-	}
-
+	# Access log dimatikan: docker compose logs hanya berisi log terstruktur
+	# aplikasi (JSON) dan healthcheck tidak membanjiri keluaran.
 	php_server
 }
