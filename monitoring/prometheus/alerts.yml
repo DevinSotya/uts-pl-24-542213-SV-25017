@@ -1,0 +1,12 @@
+groups:
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Layanan {{ $labels.job }} mati (target {{ $labels.instance }})"
+          description: "Prometheus tidak bisa mengambil metrik dari {{ $labels.job }} selama lebih dari 1 menit."
+          first_action: "Lihat status dan penyebabnya: jalankan 'docker compose ps -a' lalu 'docker compose logs --tail 50 {{ $labels.job }}'. Jika container berhenti, nyalakan dengan 'docker compose start {{ $labels.job }}'."
