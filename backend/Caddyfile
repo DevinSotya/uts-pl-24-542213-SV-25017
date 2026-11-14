@@ -1,12 +1,23 @@
 {
 	frankenphp
 	admin off
+
+	# Aktifkan metrik HTTP (caddy_http_*) untuk semua server Caddy.
+	servers {
+		metrics
+	}
 }
 
 :8000 {
 	root * /app/public
 
-	# Access log dimatikan: docker compose logs hanya berisi log terstruktur
-	# aplikasi (JSON) dan healthcheck tidak membanjiri keluaran.
+	# Access log dimatikan: docker compose logs hanya berisi log terstruktur aplikasi.
 	php_server
+}
+
+# Endpoint metrik Prometheus. Port 9180 hanya terjangkau dari jaringan Docker
+# (tidak dipublish ke host) dan dipisah dari 8000 supaya scrape Prometheus
+# tidak ikut terhitung sebagai trafik aplikasi.
+:9180 {
+	metrics /metrics
 }
